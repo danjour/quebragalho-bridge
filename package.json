@@ -1,0 +1,60 @@
+{
+  "name": "quebragalho-bridge",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "MCP server to use Quebragalho gateway (api.quebragalho.dev) models as sub-agents in Claude Code, Codex, Cursor, or any MCP-compatible client",
+  "keywords": [
+    "quebragalho",
+    "mcp",
+    "claude",
+    "codex",
+    "ai",
+    "models",
+    "bridge"
+  ],
+  "homepage": "https://github.com/danjour/quebragalho-bridge",
+  "license": "MIT",
+  "author": "Eduardo D'anjour (https://github.com/danjour)",
+  "bin": {
+    "quebragalho-bridge": "index.mjs",
+    "quebragalho-mcp": "bin/quebragalho-mcp",
+    "quebragalho-install-instructions": "bin/quebragalho-install-instructions.mjs",
+    "quebragalho-doctor": "bin/quebragalho-doctor.mjs",
+    "qg": "bin/qg"
+  },
+  "files": [
+    "index.mjs",
+    "agent-runner.mjs",
+    "job-queue.mjs",
+    "memory-store.mjs",
+    "model-router.mjs",
+    "usage-store.mjs",
+    "verify.mjs",
+    "bin/",
+    "skills/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test && node --check index.mjs && node --check agent-runner.mjs",
+    "test:posix": "bash -n bin/qg bin/quebragalho-mcp",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  },
+  "overrides": {
+    "@hono/node-server": ">=2.0.5"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/danjour/quebragalho-bridge.git"
+  },
+  "devDependencies": {
+    "eslint": "^10.11.0",
+    "eslint-plugin-n": "^18.4.0"
+  }
+}

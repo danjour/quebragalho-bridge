@@ -1,0 +1,115 @@
+---
+name: quebragalho-executor
+description: Delegate bounded editing, review, and analysis tasks to Quebragalho models through the repo-aware quebragalho_agent MCP tool.
+---
+
+# Quebragalho Executor
+
+Use Quebragalho for bounded execution while the current assistant remains the
+orchestrator, reviewer, and final validator.
+
+## Repo-aware agent tools
+
+Use the MCP repo-aware tools when the task needs to inspect or modify a repository:
+
+- Use `quebragalho_route` first when you need an explainable ranking without executing
+  an agent.
+- `prompt`: one concrete task with owned files and validation commands.
+- `cwd`: project directory under `QUEBRAGALHO_AGENT_ALLOWED_ROOTS`.
+- `executor`: choose `native` to use a Claude Code-style CLI routed to the
+  Quebragalho gateway (`api.quebragalho.dev`) with the `qg-` API key, or
+  `opencode` to use the OpenCode fallback.
+- `mode`: `read_only` by default; use `write` only when the user authorized changes.
+- `model`: `auto` by default. Pin a model only when the orchestrator has a
+  concrete reason to override the explainable router.
+- `timeout_seconds`: 10-1800, normally 600.
+
+## Synchronous vs asynchronous
+
+Use `quebragalho_agent_start` by default for App/IDE clients and for any task that is
+non-trivial, long, parallel, or has uncertain duration. It returns a `job_id`
+immediately. Show that ID to the user, keep orchestrating, poll
+`quebragalho_job(action: "status")`, and fetch `quebragalho_job(action: "result")` after a
+terminal state.
+
+Reserve synchronous `quebragalho_agent` for a short task where blocking the caller is
+acceptable. A timeout while starting or checking a job is not permission to
+submit the same task again; inspect the existing job first.
+
+Prefer `native` when a Claude Code-compatible CLI (default `claude`) is
+installed and the bridge server has `QUEBRAGALHO_API_KEY`; the bridge injects
+`ANTHROPIC_BASE_URL`/`ANTHROPIC_AUTH_TOKEN` so the subprocess bills the prepaid
+gateway instead of another provider. Use `opencode` when the caller explicitly
+wants the OpenCode harness or no Claude Code-compatible CLI is available.
+
+`read_only` enables only repository inspection tools. `write` adds the edit tool;
+shell, nested-agent, web, and external-directory tools remain disabled. The
+orchestrator must run tests, linters, builds, Git commands, and every other command.
+The bridge rejects `write` unless its server has `QUEBRAGALHO_AGENT_WRITE_ENABLED=1`.
+The native executor uses `bypassPermissions` so the subprocess does not prompt
+again after the orchestrator delegates. The selected mode still scopes tools:
+`read_only` exposes only `Read`, `Glob`, and `Grep`; `write` also exposes scoped
+`Edit` and `Write`. Explicit deny rules keep secrets, shell, web, hooks, and
+nested agents unavailable.
+The subprocess inherits only a small environment allowlist, excluding GitHub, AWS,
+and unrelated service tokens. Treat these controls as defense in depth, not a
+security sandbox.
+
+The auto router classifies coding, security, review, UX/web, analysis, long
+context, and quick tasks. It also considers in-flight work, recent use, failures,
+and cooldown so concurrent calls are distributed without blind round-robin.
+The gateway is prepaid and pay-as-you-go, so expensive variants (DeepSeek V4 Pro,
+Kimi K3) stay out of automatic routing by default as a cost control. An
+administrator can set `QUEBRAGALHO_AUTO_INCLUDE_PREMIUM_MODELS=1` to include them;
+the configured allowlists, denylist, tiers, and executor policy still apply.
+Recoverable model errors can fall back to a freshly ranked model only in
+`read_only`; `write` and explicit model choices never rotate silently.
+
+The tool returns a stable object with `status`, `summary`, `result`,
+`next_actions`, `artifacts`, `executor`, the executor `session_id`, and
+`routing` metadata with the reason, ranking, and attempts.
+
+## Delegation pattern
+
+1. Keep architecture, product decisions, secrets, production, and user communication
+   with the orchestrator.
+2. Give Quebragalho a narrow task and explicit file ownership.
+3. Keep `model: auto` unless a manual model choice is justified; inspect
+   `quebragalho_route` when the routing decision matters.
+4. Choose `native` or `opencode` explicitly when the harness matters.
+5. Prefer `quebragalho_agent_start`; use synchronous `quebragalho_agent` only for short work.
+6. Use `read_only` for exploration or review.
+7. Use `write` only for an authorized, bounded patch.
+8. Inspect the diff and run the repository's own checks in the orchestrator.
+9. Never let the Quebragalho agent commit, push, deploy, or handle credentials.
+
+For health, auth, clinical, financial, tenant-isolation, or other high-risk code,
+use Quebragalho only as an additional opinion. The primary security/code reviewer owns
+the decision.
+
+## Text-only tools
+
+Use `quebragalho_code`, `quebragalho_review`, or a model-specific tool only when all required
+context is already in the prompt. They do not read files or run tests.
+
+## No direct CLI fallback
+
+Never invoke `quebragalho`, `qg`, `opencode`, or any equivalent Quebragalho command through
+the shell for repository delegation. Do not reproduce the bridge's internal
+arguments, use `--permission-mode bypassPermissions`, or treat a shell command as
+an MCP call.
+
+If `quebragalho_agent` is missing or the MCP server is stale, stop and report the
+configuration problem. Ask the user to configure or restart the MCP client. Do
+not silently fall back to the CLI.
+
+## Privacy
+
+Do not send `.env`, credentials, private transcripts, production databases, logs,
+patient/customer records, payment data, or other sensitive material to Quebragalho.
+
+## Availability
+
+After installing or changing the MCP configuration, restart Codex, Claude Code, or
+the other MCP client. Tools are discovered at session startup and do not appear
+inside an already-running session.

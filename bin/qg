@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+# qg — Quebragalho CLI direta (gateway api.quebragalho.dev, via API key)
+set -euo pipefail
+
+R='\033[0;31m'; G='\033[0;32m'; Y='\033[1;33m'; C='\033[0;36m'; M='\033[0;35m'; W='\033[1;37m'; N='\033[0m'
+
+MODEL="deepseek-v4.1-flash"; TEMP="0.3"; SYS=""; PROMPT=""
+TIMEOUT="120"; QUIET=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --model|-m) MODEL="$2"; shift 2 ;;
+    --system|-s) SYS="$2"; shift 2 ;;
+    --temp|-t) TEMP="$2"; shift 2 ;;
+    --timeout)
+      [ $# -ge 2 ] || { echo "qg: --timeout exige um valor (inteiro > 0, em segundos)" >&2; exit 64; }
+      TIMEOUT="$2"; shift 2
+      case "$TIMEOUT" in
+        ''|*[!0-9]*) echo "qg: --timeout inválido: \"$TIMEOUT\" (esperado inteiro > 0, em segundos)" >&2; exit 64 ;;
+      esac
+      [ "$TIMEOUT" -gt 0 ] || { echo "qg: --timeout deve ser maior que 0 (recebido: $TIMEOUT)" >&2; exit 64; }
+      ;;
+    -q|--quiet) QUIET=1; shift ;;
+    --list) echo "deepseek-v4.1-flash deepseek-v4-pro glm-5.3 glm-5.3-flash mimo-v2.6-flash kimi-k3 gpt-6-luna muse-spark-1.3-contributor"; exit 0 ;;
+    --version)
+      SCRIPT_PATH="${BASH_SOURCE[0]}"
+      while [ -L "$SCRIPT_PATH" ]; do
+        SCRIPT_DIR=$(cd -P "$(dirname "$SCRIPT_PATH")" && pwd)
+        SCRIPT_PATH=$(readlink "$SCRIPT_PATH")
+        [[ "$SCRIPT_PATH" != /* ]] && SCRIPT_PATH="$SCRIPT_DIR/$SCRIPT_PATH"
+      done
+      QG_ROOT=$(cd -P "$(dirname "$SCRIPT_PATH")/.." && pwd)
+      QG_VERSION="desconhecida"
+      if command -v node >/dev/null 2>&1; then
+        QG_VERSION=$(node -p "require('$QG_ROOT/package.json').version" 2>/dev/null) || QG_VERSION="desconhecida"
+      fi
+      echo "$QG_VERSION"
+      exit 0 ;;
+    --help|-h)
+      echo -e "${W}qg${N} — Quebragalho CLI direta (gateway api.quebragalho.dev)
+Uso: qg [opções] <prompt>
+Opções:
+  -m, --model <modelo>   modelo (default: deepseek-v4.1-flash; --list para todos)
+  -s, --system <texto>   system prompt
+  -t, --temp <n>         temperature (default: 0.3)
+      --timeout <seg>    timeout da requisição em segundos (default: 120)
+  -q, --quiet            suprime as linhas decorativas (┌─/└─) no stderr
+      --version          imprime a versão do pacote
+      --list             lista os modelos disponíveis
+  -h, --help             esta ajuda"; exit 0 ;;
+    *) PROMPT="$1"; shift ;;
+  esac
+done
+
+STDIN_PROMPT=""
+[ ! -t 0 ] && STDIN_PROMPT=$(cat)
+if [ -n "$STDIN_PROMPT" ]; then
+  if [ -n "$PROMPT" ]; then
+    PROMPT="${PROMPT}"$'\n\n'"${STDIN_PROMPT}"
+  else
+    PROMPT="$STDIN_PROMPT"
+  fi
+fi
+[ -z "$PROMPT" ] && { echo "Usage: qg <prompt> [--model M] [--system S] [--temp N] [--timeout seg] [-q]"; exit 1; }
+
+API="${QUEBRAGALHO_API_KEY:-}"
+[ -z "$API" ] && [ -f ~/.config/claude-secrets.env ] \
+  && API=$(grep '^export QUEBRAGALHO_API_KEY=' ~/.config/claude-secrets.env | sed 's/^export QUEBRAGALHO_API_KEY="//;s/"$//')
+[ -z "$API" ] && { echo -e "${R}ERRO${N}: QUEBRAGALHO_API_KEY não definida" >&2; exit 1; }
+
+MSG=$(jq -n --arg user "$PROMPT" '[{role:"user",content:$user}]')
+[ -n "$SYS" ] && MSG=$(jq -n --arg sys "$SYS" --arg user "$PROMPT" \
+  '[{role:"system",content:$sys},{role:"user",content:$user}]')
+
+DATA=$(jq -n --arg model "$MODEL" --argjson msg "$MSG" --argjson temp "$TEMP" \
+  '{model:$model,messages:$msg,temperature:$temp}')
+
+if [ "$QUIET" -eq 0 ]; then echo -e "${M}┌─${N} ${W}${MODEL}${N}" >&2; fi
+
+BASE="${QUEBRAGALHO_BASE_URL:-https://api.quebragalho.dev/v1}"
+# --fail-with-body (curl >= 7.76): em erro HTTP (>=400) o curl sai 22 mas
+# devolve o corpo do erro na stdout — capturamos e repassamos ao stderr
+# antes de propagar o status; sem isso o erro de API pareceria resposta vazia.
+RAW=$(curl -s --fail-with-body --max-time "$TIMEOUT" "${BASE}/chat/completions" \
+  -H "Authorization: Bearer $API" \
+  -H "Content-Type: application/json" \
+  -d "$DATA") || {
+  CURL_STATUS=$?
+  echo -e "${R}qg${N}: requisição falhou (curl status $CURL_STATUS)" >&2
+  if [ -n "$RAW" ]; then
+    printf '%s\n' "$RAW" >&2
+  else
+    echo "qg: sem corpo de erro (timeout ou conexão recusada?)" >&2
+  fi
+  exit "$CURL_STATUS"
+}
+
+# Router retorna SSE (deepseek) ou JSON (kimi, glm etc) — trata ambos
+if [[ "$RAW" =~ ^data: ]]; then
+  echo "$RAW" | while IFS= read -r line; do
+    [[ "$line" =~ ^data:\  ]] || continue
+    chunk="${line#data: }"
+    [ "$chunk" = "[DONE]" ] && continue
+    content=$(echo "$chunk" | jq -r '.choices[0].delta.content // .choices[0].delta.reasoning_content // ""')
+    echo -n "$content"
+  done
+  echo
+else
+  echo "$RAW" | jq -r '.choices[0].message.content // .choices[0].message.reasoning_content // "ERRO: sem resposta"'
+fi
+
+if [ "$QUIET" -eq 0 ]; then echo -e "${M}└─${N} ${C}modelo:${N} ${MODEL}" >&2; fi
