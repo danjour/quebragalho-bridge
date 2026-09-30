@@ -1004,7 +1004,7 @@ test('MCP sincroniza catálogo via GET /models quando QUEBRAGALHO_MODEL_SYNC=1',
   assert.equal(statusPayload.model_sync.error, null);
   assert.deepEqual(statusPayload.model_sync.added, ['modelo-novo-sync']);
   assert.deepEqual(statusPayload.model_sync.updated, ['deepseek-v4.1-flash']);
-  assert.equal(statusPayload.model_sync.total, 9);
+  assert.equal(statusPayload.model_sync.total, 18);
   assert.equal(receivedAuth, 'Bearer test-key');
 
   const modelsRead = await client.readResource({ uri: 'quebragalho://models' });

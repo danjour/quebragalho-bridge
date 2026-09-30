@@ -336,16 +336,25 @@ test('catalogTiers deriva as classes do catálogo em ordem estável', (t) => {
   assert.deepEqual(catalogTiers(), ['pro', 'ultra', 'max', 'omega']);
 });
 
-test('catálogo declara price US$/M para os 8 modelos base', () => {
+test('catálogo declara price US$/M para os 17 modelos do gateway', () => {
   const expected = {
+    'claude-opus-5.5': { in: 1.6, out: 8.0 },
     'deepseek-v4.1-flash': { in: 0.14, out: 0.56 },
     'deepseek-v4-pro': { in: 0.32, out: 0.97 },
-    'glm-5.3': { in: 0.54, out: 1.70 },
+    'glm-5.3': { in: 0.54, out: 1.7 },
     'glm-5.3-flash': { in: 0.05, out: 0.17 },
-    'mimo-v2.6-flash': { in: 0.03, out: 0.06 },
-    'kimi-k3': { in: 1.19, out: 6.20 },
+    'gpt-5.6-luna': { in: 0.055, out: 0.33 },
+    'gpt-5.6-sol': { in: 1.2, out: 7.2 },
     'gpt-6-luna': { in: 0.03, out: 0.15 },
-    'muse-spark-1.3-contributor': { in: 0.03, out: 0.05 },
+    'gpt-6-sol': { in: 0.4, out: 2.0 },
+    'grok-4.7': { in: 0.8, out: 2.4 },
+    'hy4': { in: 0.33, out: 1.0 },
+    'kimi-k3': { in: 1.19, out: 6.2 },
+    'mimo-v2.6-flash': { in: 0.028, out: 0.056 },
+    'muse-spark-1.3-contributor': { in: 0.025, out: 0.05 },
+    'qwen3.8-flash': { in: 0.03, out: 0.094 },
+    'qwen3.8-max': { in: 0.4, out: 1.2 },
+    'qwen3.8-omni-flash': { in: 0.03, out: 0.094 },
   };
   assert.equal(Object.keys(expected).length, ALL_MODELS.length);
   for (const [id, price] of Object.entries(expected)) {

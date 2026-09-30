@@ -58,8 +58,9 @@ security sandbox.
 The auto router classifies coding, security, review, UX/web, analysis, long
 context, and quick tasks. It also considers in-flight work, recent use, failures,
 and cooldown so concurrent calls are distributed without blind round-robin.
-The gateway is prepaid and pay-as-you-go, so expensive variants (DeepSeek V4 Pro,
-Kimi K3) stay out of automatic routing by default as a cost control. An
+The gateway is prepaid and pay-as-you-go, so the expensive variants (the `max`
+cost class: Claude Opus 5.5, DeepSeek V4 Pro, GPT 5.6 Sol, Kimi K3) stay out of
+automatic routing by default as a cost control. An
 administrator can set `QUEBRAGALHO_AUTO_INCLUDE_PREMIUM_MODELS=1` to include them;
 the configured allowlists, denylist, tiers, and executor policy still apply.
 Recoverable model errors can fall back to a freshly ranked model only in

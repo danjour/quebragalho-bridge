@@ -32,82 +32,52 @@ O [Quebragalho](https://www.quebragalho.dev/) é um gateway brasileiro pré-pago
 ## Arquitetura
 
 ```mermaid
-graph TB
-    subgraph "Orquestrador"
-        CLAUDE[Claude Code]
-        CODEX[Codex]
-        OPENCODE[OpenCode]
-        CURSOR[Cursor]
-    end
-
-    subgraph "quebragalho-bridge"
-        MCP[Servidor MCP<br/>stdio]
-        CLI[Wrapper CLI<br/>bin/qg]
-        AGENT[quebragalho_agent<br/>executor por chamada]
-        NATIVE[CLI Claude Code<br/>ANTHROPIC_BASE_URL]
-        HARNESS[OpenCode<br/>fallback]
-    end
-
-    subgraph "Gateway Quebragalho (api.quebragalho.dev)"
-        DS[DeepSeek V4.1 Flash<br/>1M ctx]
-        GLM[GLM 5.3<br/>~197K ctx]
-        MIMO[Mimo V2.6 Flash<br/>1M ctx]
-        OUTROS[Kimi K3 / GPT 6 Luna<br/>Muse Spark / DeepSeek V4 Pro]
-    end
-
-    CLAUDE -->|MCP tools| MCP
-    CODEX -->|MCP tools| MCP
-    CURSOR -->|MCP tools| MCP
-    Terminal -->|CLI direta| CLI
-
-    MCP --> AGENT
-    AGENT -->|executor: native| NATIVE
-    AGENT -->|executor: opencode| HARNESS
-    NATIVE -->|ANTHROPIC_AUTH_TOKEN| DS
-    HARNESS -->|provider quebragalho| DS
-    OPENCODE -->|provider quebragalho| DS
-    MCP -->|Chave qg-| DS
-    MCP -->|Chave qg-| GLM
-    MCP -->|Chave qg-| MIMO
-    MCP -->|Chave qg-| OUTROS
-    CLI -->|Chave qg-| DS
-    CLI -->|Chave qg-| OUTROS
+graph LR
+    O["Orquestrador<br/>Claude Code · Codex · Cursor · OpenCode"] -->|MCP stdio| B["quebragalho-bridge<br/>MCP + CLI qg"]
+    T["Terminal"] -->|qg| B
+    B -->|chave qg-| G["Gateway Quebragalho<br/>api.quebragalho.dev/v1"]
+    G --> M["17 modelos<br/>DeepSeek · GLM · Qwen · GPT · Claude · Kimi · Grok · Mimo · Muse · HY4"]
 ```
 
 ---
 
 ## Modelos disponíveis
 
-O gateway anuncia 17 modelos no app; o bridge embarca os 8 públicos da
-página inicial. Preços em USD por milhão de tokens, consultados em
-30/09/2026 — confirme os valores atuais no
-[catálogo oficial](https://app.quebragalho.dev/models) antes de recarregar.
+Os 17 modelos do gateway, com os preços reais do app (US$/M de tokens,
+consultados em 30/09/2026 — confirme no
+[catálogo oficial](https://app.quebragalho.dev/models) antes de recarregar):
 
-| Modelo | Contexto | In / Out (US$/M) | Classe | Seleção automática | Ideal para |
-|--------|----------|------------------|--------|:------------------:|-----------|
-| **DeepSeek V4.1 Flash** | 1M | 0,14 / 0,56 | pro | Sim | Codificação geral (padrão do bridge) |
-| **Mimo V2.6 Flash** | 1M | 0,03 / 0,06 | pro | Sim | Análise com contexto longo |
-| **GPT 6 Luna** | 256K | 0,03 / 0,15 | pro | Sim | Generalista barato |
-| **GLM 5.3 Flash** | ~200K | 0,05 / 0,17 | pro | Sim | Tarefas rápidas |
-| **Muse Spark 1.3 Contributor** | ~128K | 0,03 / 0,05 | pro | Sim | O mais barato do catálogo |
-| **GLM 5.3** | ~197K | 0,54 / 1,70 | ultra | Sim | Raciocínio complexo, segurança e web |
-| **DeepSeek V4 Pro** | 1M | 0,32 / 0,97 | max | Com opt-in | Codificação mais exigente |
-| **Kimi K3** | ~259K | 1,19 / 6,20 | max | Com opt-in | Tarefas gerais e visão |
+| Modelo | In / Out (US$/M) | Contexto | Visão |
+|--------|------------------|----------|:-----:|
+| Muse Spark 1.3 Contributor | 0,025 / 0,05 | 1M | ✓ |
+| Mimo V2.6 Flash | 0,028 / 0,056 | 1M | ✓ |
+| Qwen 3.8 Flash | 0,03 / 0,094 | 1M | ✓ |
+| Qwen 3.8 Omni Flash | 0,03 / 0,094 | 1M | ✓ |
+| GPT 6 Luna | 0,03 / 0,15 | 1M | ✓ |
+| GLM 5.3 Flash | 0,05 / 0,17 | 1M | ✓ |
+| GPT 5.6 Luna | 0,055 / 0,33 | 1M | ✓ |
+| DeepSeek V4.1 Flash | 0,14 / 0,56 | 1M | ✓ |
+| DeepSeek V4 Pro | 0,32 / 0,97 | 1M | — |
+| HY4 | 0,33 / 1,00 | 1M | — |
+| Qwen 3.8 Max | 0,40 / 1,20 | 1M | ✓ |
+| GPT 6 Sol | 0,40 / 2,00 | 1M | ✓ |
+| GLM 5.3 | 0,54 / 1,70 | 1M | — |
+| Grok 4.7 | 0,80 / 2,40 | 500K | ✓ |
+| Kimi K3 | 1,19 / 6,20 | 1M | ✓ |
+| GPT 5.6 Sol | 1,20 / 7,20 | 1M | ✓ |
+| Claude Opus 5.5 | 1,60 / 8,00 | 1M | ✓ |
 
-> Contextos e limites de saída são estimativas da família de cada modelo e
-> servem para roteamento e defaults de `max_tokens`; o limite real é o do
-> gateway.
+Sem assinatura — o gateway é pré-pago, e as classes no bridge são só
+política de roteamento para proteger o crédito:
 
-As classes substituem os antigos "planos" — aqui não existe assinatura:
+- `pro` e `ultra`: elegíveis no roteamento automático (`model: "auto"`);
+- `max` (Claude Opus 5.5, DeepSeek V4 Pro, GPT 5.6 Sol, Kimi K3): só por
+  seleção manual de `model`, ou no ranking automático com
+  `QUEBRAGALHO_AUTO_INCLUDE_PREMIUM_MODELS=1`; allowlist, denylist e tiers
+  continuam valendo.
 
-- `pro`: dia a dia, baratos, sempre elegíveis;
-- `ultra`: flagship (GLM 5.3), elegíveis por padrão;
-- `max`: variantes caras (DeepSeek V4 Pro, Kimi K3) que **não** entram no
-  roteamento automático para proteger o crédito pré-pago. Elas podem ser
-  selecionadas explicitamente por `model` e limitadas com
-  `QUEBRAGALHO_NATIVE_MODEL_ALLOWLIST`. Para incluí-las no ranking automático,
-  defina `QUEBRAGALHO_AUTO_INCLUDE_PREMIUM_MODELS=1`; allowlist, denylist,
-  classes e a política do executor continuam sendo aplicadas.
+Novos modelos do gateway entram via `QUEBRAGALHO_MODEL_SYNC=1` (ver tabela
+de variáveis).
 
 ---
 
@@ -160,7 +130,7 @@ export QUEBRAGALHO_AGENT_ALLOWED_ROOTS="/caminho/para/seus/projetos"
 export QUEBRAGALHO_AGENT_EXECUTOR="native"
 # Opcional: caminho da CLI estilo Claude Code (padrão: claude)
 export QUEBRAGALHO_CODE_BIN="/caminho/para/claude"
-# Opcional: inclui variantes caras (DeepSeek V4 Pro, Kimi K3) no roteamento automático
+# Opcional: inclui as variantes caras (classe max) no roteamento automático
 export QUEBRAGALHO_AUTO_INCLUDE_PREMIUM_MODELS="1"
 # Opcional e sensível: habilita edição (sem shell)
 export QUEBRAGALHO_AGENT_WRITE_ENABLED="1"
@@ -260,7 +230,7 @@ QUEBRAGALHO_API_KEY = "qg-sua-chave"
 QUEBRAGALHO_AGENT_ALLOWED_ROOTS = "/caminho/absoluto/para/seus/projetos"
 QUEBRAGALHO_AGENT_EXECUTOR = "native"
 QUEBRAGALHO_CODE_BIN = "/caminho/absoluto/para/claude"
-# Opcional: inclui DeepSeek V4 Pro e Kimi K3 no ranking automático
+# Opcional: inclui as variantes da classe max no ranking automático
 QUEBRAGALHO_AUTO_INCLUDE_PREMIUM_MODELS = "1"
 ```
 
@@ -669,7 +639,8 @@ No `quebragalho_agent`, `model: "auto"` é o padrão. O roteador combina:
   longo ou resposta rápida;
 - afinidades declaradas de cada modelo;
 - classe de custo permitida e allowlist/denylist administrativas;
-- variantes caras (`max`: DeepSeek V4 Pro, Kimi K3) somente quando
+- variantes caras (classe `max`: Claude Opus 5.5, DeepSeek V4 Pro, GPT 5.6 Sol,
+  Kimi K3) somente quando
   `QUEBRAGALHO_AUTO_INCLUDE_PREMIUM_MODELS=1` — controle de gasto em um gateway
   pré-pago;
 - execuções em andamento, uso recente, falhas e cooldown.
@@ -772,7 +743,7 @@ Ele valida, com ✔/✖ e sugestão de correção por item: a chave `qg-` contra
 
 ### Imagens nas tools de prompt direto
 
-`quebragalho_code` e as tools por modelo (`quebragalho_<modelo>`) aceitam `images`: array de 1 a 5 itens, cada um `{"path": "arquivo.png"}` (lido do disco e enviado como data URL base64) ou `{"url": "https://..."}` (repassado ao gateway); strings puras são aceitas como `path`. Formatos: png, jpg, jpeg, webp, gif; até 5 MiB por arquivo. Apenas modelos com visão aceitam o parâmetro — `glm-5.3`, `kimi-k3` e `gpt-6-luna`. Modelo sem visão retorna `MODEL_NO_VISION` com as alternativas; imagem inválida retorna `IMAGES_INVALID` com a causa. `quebragalho_review` não aceita imagens, e modelos trazidos por `QUEBRAGALHO_MODEL_SYNC` nunca são marcados com visão.
+`quebragalho_code` e as tools por modelo (`quebragalho_<modelo>`) aceitam `images`: array de 1 a 5 itens, cada um `{"path": "arquivo.png"}` (lido do disco e enviado como data URL base64) ou `{"url": "https://..."}` (repassado ao gateway); strings puras são aceitas como `path`. Formatos: png, jpg, jpeg, webp, gif; até 5 MiB por arquivo. Quase todo o catálogo tem visão — só `deepseek-v4-pro`, `glm-5.3` e `hy4` são texto puro. Modelo sem visão retorna `MODEL_NO_VISION` com as alternativas; imagem inválida retorna `IMAGES_INVALID` com a causa. `quebragalho_review` não aceita imagens, e modelos trazidos por `QUEBRAGALHO_MODEL_SYNC` nunca são marcados com visão.
 
 ---
 
@@ -922,7 +893,8 @@ O servidor também expõe **recursos** e **prompts**:
 | `QUEBRAGALHO_MAX_SPEND_USD` | — | Teto diário de gasto estimado em US$ (preços por milhão de tokens no catálogo). Estourado ou diário ilegível = `BUDGET_EXCEEDED` (fail-closed) antes de tools diretas, `quebragalho_agent` e enfileiramento; aviso em 80% no rodapé das tools diretas e em `warnings` do agente. Ausente/vazia/inválida = sem limite. Reset diário é implícito (arquivo por dia) |
 | `QUEBRAGALHO_MODEL_DENYLIST` | — | Modelos bloqueados em todas as frentes; são ocultados dos schemas/recursos e rejeitados antes de rede ou fila |
 | `QUEBRAGALHO_MODEL_TIERS` | `pro,max,ultra` | Classes de custo permitidas no roteamento, preview e seleção manual (`pro` dia a dia, `ultra` flagship, `max` premium) |
-| `QUEBRAGALHO_AUTO_INCLUDE_PREMIUM_MODELS` | — | Defina exatamente `1` para incluir variantes caras (`max`: DeepSeek V4 Pro, Kimi K3) no ranking automático. Ausente, `0` ou outro valor preserva o comportamento padrão. Allowlist, denylist, tiers e política do executor continuam valendo. |
+| `QUEBRAGALHO_AUTO_INCLUDE_PREMIUM_MODELS` | — | Defina exatamente `1` para incluir variantes caras (classe `max`: Claude Opus 5.5, DeepSeek V4 Pro, GPT 5.6 Sol, Kimi K3)
+  no ranking automático. Ausente, `0` ou outro valor preserva o comportamento padrão. Allowlist, denylist, tiers e política do executor continuam valendo. |
 | `QUEBRAGALHO_LIST_MODEL_TOOLS` | — | Defina `1` para voltar a publicar uma tool por modelo na listagem. Ausente, as chamadas por nome antigo seguem funcionando, mas as tools não aparecem na descoberta. |
 | `QUEBRAGALHO_MODEL_COOLDOWN_SECONDS` | `60` | Cooldown de um modelo após falha recuperável |
 | `QUEBRAGALHO_CODE_BIN` | `claude` | Executável da CLI estilo Claude Code usada pelo executor nativo; pode ser Node quando `QUEBRAGALHO_CODE_ENTRYPOINT` estiver definido |

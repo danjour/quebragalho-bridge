@@ -102,15 +102,30 @@ function captureBodies() {
   };
 }
 
-test('catálogo marca exatamente kimi-k3, gpt-6-luna e glm-5.3 com vision: true', () => {
+test('catálogo marca 14 modelos com visão e mantém os 3 de texto puro sem a flag', () => {
   const withVision = Object.keys(MODEL_CATALOG)
     .filter((id) => MODEL_CATALOG[id].vision === true)
     .sort();
-  assert.deepEqual(withVision, ['glm-5.3', 'gpt-6-luna', 'kimi-k3']);
+  assert.deepEqual(withVision, [
+    'claude-opus-5.5',
+    'deepseek-v4.1-flash',
+    'glm-5.3-flash',
+    'gpt-5.6-luna',
+    'gpt-5.6-sol',
+    'gpt-6-luna',
+    'gpt-6-sol',
+    'grok-4.7',
+    'kimi-k3',
+    'mimo-v2.6-flash',
+    'muse-spark-1.3-contributor',
+    'qwen3.8-flash',
+    'qwen3.8-max',
+    'qwen3.8-omni-flash',
+  ]);
 
   // Demais modelos: flag ausente (não apenas falsy) = sem visão.
   for (const [id, meta] of Object.entries(MODEL_CATALOG)) {
-    if (!['kimi-k3', 'gpt-6-luna', 'glm-5.3'].includes(id)) {
+    if (!withVision.includes(id)) {
       assert.ok(!('vision' in meta), `${id} não deve declarar vision`);
     }
   }
@@ -130,12 +145,12 @@ test('mergeModelSync nunca concede visão a modelo adicionado por sincronizaçã
 
   mergeModelSync([
     { id: 'modelo-visual-sync', vision: true }, // remoto "anuncia" visão
-    { id: 'glm-5.3' }, // update de modelo local conhecido
+    { id: 'kimi-k3' }, // update de modelo local conhecido
   ]);
 
   assert.ok(!('vision' in MODEL_CATALOG['modelo-visual-sync']),
     'modelo de sync não pode nascer com vision, mesmo com o remoto anunciando');
-  assert.equal(MODEL_CATALOG['glm-5.3'].vision, true,
+  assert.equal(MODEL_CATALOG['kimi-k3'].vision, true,
     'update de sync preserva metadados locais, inclusive vision');
 });
 
@@ -151,7 +166,7 @@ test('quebragalho_code com { path } envia content array com image_url data URL d
     arguments: {
       prompt: 'descreva esta imagem',
       system: 'Você é um analista de imagens.',
-      model: 'glm-5.3',
+      model: 'deepseek-v4.1-flash',
       images: [{ path: path.join(dir, 'foto.png') }],
     },
   });
@@ -209,7 +224,7 @@ test('tool por modelo legada também aceita images (string pura tratada como pat
   const dir = await withImageDir(t, { 'gato.gif': Buffer.from([0x47, 0x49, 0x46, 0x38]) });
 
   const result = await client.callTool({
-    name: 'quebragalho_glm_5_3',
+    name: 'quebragalho_kimi_k3',
     arguments: {
       prompt: 'relate a imagem',
       images: [path.join(dir, 'gato.gif')],
@@ -236,7 +251,7 @@ test('modelo sem visão com images falha com MODEL_NO_VISION e sugere alternativ
     name: 'quebragalho_code',
     arguments: {
       prompt: 'descreva',
-      model: 'mimo-v2.6-flash',
+      model: 'glm-5.3',
       images: [{ url: 'https://exemplo/img.png' }],
     },
   });
@@ -244,8 +259,8 @@ test('modelo sem visão com images falha com MODEL_NO_VISION e sugere alternativ
   assert.equal(result.isError, true);
   const text = result.content[0].text;
   assert.match(text, /MODEL_NO_VISION/);
-  assert.match(text, /mimo-v2\.6-flash/);
-  assert.match(text, /use um de: glm-5\.3, kimi-k3, gpt-6-luna/);
+  assert.match(text, /glm-5\.3 não suporta imagens/);
+  assert.match(text, /use um de: claude-opus-5\.5, deepseek-v4\.1-flash/);
   assert.equal(requests, 0, 'não deve chamar o gateway');
 });
 
@@ -260,7 +275,7 @@ test('extensão proibida e arquivo inexistente falham com IMAGES_INVALID distint
     name: 'quebragalho_code',
     arguments: {
       prompt: 'x',
-      model: 'glm-5.3',
+      model: 'deepseek-v4.1-flash',
       images: [{ path: path.join(dir, 'nota.txt') }],
     },
   });
@@ -273,7 +288,7 @@ test('extensão proibida e arquivo inexistente falham com IMAGES_INVALID distint
     name: 'quebragalho_code',
     arguments: {
       prompt: 'x',
-      model: 'glm-5.3',
+      model: 'deepseek-v4.1-flash',
       images: [{ path: path.join(dir, 'ausente.png') }],
     },
   });
@@ -302,7 +317,7 @@ test('acima de 5 MiB falha com IMAGES_INVALID sem ler o conteúdo no erro', asyn
     name: 'quebragalho_code',
     arguments: {
       prompt: 'x',
-      model: 'glm-5.3',
+      model: 'deepseek-v4.1-flash',
       images: [{ path: path.join(dir, 'grande.png') }],
     },
   });
