@@ -5377,7 +5377,12 @@ test('resolveNativeCliBin retorna null quando nada é encontrado', async () => {
   }
 });
 
-test('resolveNativeCliBin no posix procura bin sem extensões do Windows', async () => {
+test('resolveNativeCliBin no posix procura bin sem extensões do Windows', {
+  // Simular posix num host Windows não é fiel: X_OK não tem semântica de
+  // execução lá (e stub recém-escrito pode falhar transitório em varredura
+  // antivírus). O ramo posix é coberto de verdade no CI linux/macos.
+  skip: process.platform === 'win32',
+}, async () => {
   const dir = await createTempBinDir('qg-native-bin-posix-');
   try {
     const bare = await createBinStub(dir, 'claude', '');
