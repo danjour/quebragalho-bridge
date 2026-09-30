@@ -68,7 +68,7 @@ test('qg combina prompt posicional com stdin sem chamada de rede', skipOnWindows
   const fakeBin = await mkdtemp(path.join(os.tmpdir(), 'quebragalho-qg-'));
   await writeFakeCurl(fakeBin, FAKE_CURL_OK);
 
-  const result = await runQg(['Revise este código'], { stdin: 'const answer = 42;' });
+  const result = await runQg(['Revise este código'], { fakeBin, stdin: 'const answer = 42;' });
 
   assert.equal(result.code, 0, result.stderr);
   assert.match(result.stdout, /Revise este código/);

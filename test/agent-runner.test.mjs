@@ -5297,6 +5297,13 @@ test('timeout nativo com apenas texto benigno continua TIMEOUT', async () => {
 
 // Os stubs são arquivos comuns: no posix precisam de +x para passar na
 // checagem de acesso; no Windows a permissão de execução não existe.
+// mkdtemp canônico: no CI Windows o TEMP vem em forma 8.3 (RUNNER~1) e o
+// realpath do stub devolve a forma longa — canonicalizar o diretório evita
+// comparar alias diferentes do mesmo caminho.
+async function createTempBinDir(prefix) {
+  return realpath(await mkdtemp(path.join(os.tmpdir(), prefix)));
+}
+
 async function createBinStub(dir, name, ext) {
   const file = path.join(dir, name + ext);
   await writeFile(file, '@echo off\r\n', 'utf8');
@@ -5305,7 +5312,7 @@ async function createBinStub(dir, name, ext) {
 }
 
 test('resolveNativeCliBin resolve claude.exe com precedência sobre .cmd', async () => {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'qg-native-bin-exe-'));
+  const dir = await createTempBinDir('qg-native-bin-exe-');
   try {
     const exe = await createBinStub(dir, 'claude', '.exe');
     await createBinStub(dir, 'claude', '.cmd');
@@ -5319,8 +5326,8 @@ test('resolveNativeCliBin resolve claude.exe com precedência sobre .cmd', async
 });
 
 test('resolveNativeCliBin resolve shim .cmd no win32 varrendo cada diretório', async () => {
-  const empty = await mkdtemp(path.join(os.tmpdir(), 'qg-native-bin-empty-'));
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'qg-native-bin-cmd-'));
+  const empty = await createTempBinDir('qg-native-bin-empty-');
+  const dir = await createTempBinDir('qg-native-bin-cmd-');
   try {
     const cmd = await createBinStub(dir, 'claude', '.cmd');
     // Delimitador injetado: a ordem dos diretórios é do PATH fake mesmo fora
@@ -5371,7 +5378,7 @@ test('resolveNativeCliBin retorna null quando nada é encontrado', async () => {
 });
 
 test('resolveNativeCliBin no posix procura bin sem extensões do Windows', async () => {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'qg-native-bin-posix-'));
+  const dir = await createTempBinDir('qg-native-bin-posix-');
   try {
     const bare = await createBinStub(dir, 'claude', '');
     await createBinStub(dir, 'claude', '.cmd');
@@ -5389,7 +5396,7 @@ test('resolveNativeCliBin no posix procura bin sem extensões do Windows', async
 });
 
 test('buildAgentInvocation no win32 embrulha shim .cmd com ComSpec /d /s /c', async () => {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'qg-native-invocation-cmd-'));
+  const dir = await createTempBinDir('qg-native-invocation-cmd-');
   try {
     const cmd = await createBinStub(dir, 'claude', '.cmd');
     const invocation = buildAgentInvocation(
@@ -5432,7 +5439,7 @@ test('buildAgentInvocation no win32 embrulha shim .cmd com ComSpec /d /s /c', as
 });
 
 test('buildAgentInvocation no win32 usa .exe resolvido direto no spawn', async () => {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'qg-native-invocation-exe-'));
+  const dir = await createTempBinDir('qg-native-invocation-exe-');
   try {
     const exe = await createBinStub(dir, 'claude', '.exe');
     const invocation = buildAgentInvocation(
