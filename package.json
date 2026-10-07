@@ -54,7 +54,7 @@
     "url": "git+https://github.com/danjour/quebragalho-bridge.git"
   },
   "devDependencies": {
-    "eslint": "^10.11.0",
+    "eslint": "^10.12.0",
     "eslint-plugin-n": "^18.4.0"
   }
 }
